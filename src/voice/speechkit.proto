@@ -1,0 +1,77 @@
+// Streaming subset of the public Yandex Cloud SpeechKit v3 protocol.
+// https://github.com/yandex-cloud/cloudapi/tree/master/yandex/cloud/ai/stt/v3
+syntax = "proto3";
+package speechkit.stt.v3;
+
+service Recognizer {
+  rpc RecognizeStreaming(stream StreamingRequest) returns (stream StreamingResponse);
+}
+
+message StreamingRequest {
+  oneof event {
+    StreamingOptions session_options = 1;
+    AudioChunk chunk = 2;
+    Eou eou = 4;
+  }
+}
+message StreamingOptions {
+  RecognitionModelOptions recognition_model = 1;
+  EouClassifierOptions eou_classifier = 2;
+}
+message RecognitionModelOptions {
+  string model = 1;
+  AudioFormatOptions audio_format = 2;
+  TextNormalizationOptions text_normalization = 3;
+  LanguageRestrictionOptions language_restriction = 4;
+  AudioProcessingType audio_processing_type = 5;
+  enum AudioProcessingType {
+    AUDIO_PROCESSING_TYPE_UNSPECIFIED = 0;
+    REAL_TIME = 1;
+  }
+}
+message AudioFormatOptions { RawAudio raw_audio = 1; }
+message RawAudio {
+  AudioEncoding audio_encoding = 1;
+  int64 sample_rate_hertz = 2;
+  int64 audio_channel_count = 3;
+  enum AudioEncoding {
+    AUDIO_ENCODING_UNSPECIFIED = 0;
+    LINEAR16_PCM = 1;
+  }
+}
+message TextNormalizationOptions {
+  TextNormalization text_normalization = 1;
+  enum TextNormalization {
+    TEXT_NORMALIZATION_UNSPECIFIED = 0;
+    TEXT_NORMALIZATION_ENABLED = 1;
+  }
+}
+message LanguageRestrictionOptions {
+  LanguageRestrictionType restriction_type = 1;
+  repeated string language_code = 2;
+  enum LanguageRestrictionType {
+    LANGUAGE_RESTRICTION_TYPE_UNSPECIFIED = 0;
+    WHITELIST = 1;
+  }
+}
+message EouClassifierOptions { ExternalEouClassifier external_classifier = 2; }
+message ExternalEouClassifier {}
+message AudioChunk { bytes data = 1; }
+message Eou {}
+message StreamingResponse {
+  AudioCursors audio_cursors = 2;
+  oneof event {
+    AlternativeUpdate partial = 4;
+    AlternativeUpdate final = 5;
+    EouUpdate eou_update = 6;
+    FinalRefinement final_refinement = 7;
+  }
+}
+message AudioCursors { int64 final_index = 5; }
+message AlternativeUpdate { repeated Alternative alternatives = 1; }
+message Alternative { string text = 2; }
+message FinalRefinement {
+  int64 final_index = 1;
+  AlternativeUpdate normalized_text = 2;
+}
+message EouUpdate { int64 time_ms = 2; }

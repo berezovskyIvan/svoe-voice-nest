@@ -25,6 +25,8 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+[«Зоя» MVP — задачи и контракты по эндпоинтам](docs/README.md).
+
 ## Project setup
 
 ```bash

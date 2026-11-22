@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DemoDatabase } from '../persistence/demo-database.service.js';
-import { deposit, monthBounds } from '../shared/rules.js';
+import { buildDepositOffer, deposit, monthBounds } from '../shared/rules.js';
 import { YandexLanguageModel } from './yandex-language-model.service.js';
 
 interface SpendingCategory {
@@ -66,12 +66,7 @@ export class Analytics {
         totalSpent,
         categories,
         aiAdvice,
-        depositOffer: {
-          ...deposit,
-          accountBalance: balance,
-          defaultAmount:
-            balance < deposit.minAmount ? null : Math.min(800_000, balance),
-        },
+        depositOffer: buildDepositOffer(balance),
       },
     };
   }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { lineItem } from '../shared/openapi.js';
 import type { AssistantResult } from './assistant.service.js';
+import { depositPayload } from './assistant-response.js';
 
 export const originalNoSpeech = {
   status: 'error' as const,
@@ -40,6 +41,12 @@ export const originalAssistantResponse = z.union([
   marketResponse,
   analyticsResponse,
   z.object({
+    status: z.literal('success'),
+    intent: z.literal('deposit'),
+    recognizedText: z.string(),
+    payload: depositPayload,
+  }),
+  z.object({
     status: z.literal('error'),
     message: z.literal(originalNoSpeech.message),
   }),
@@ -58,6 +65,7 @@ export function toOriginalAssistantResponse(
   if (result.intent === 'unknown') return originalNoSpeech;
   const { recognizedText } = result;
   const status = 'success' as const;
+  if (result.intent === 'deposit') return { status, ...result };
   if (result.intent === 'analytics') {
     const { totalSpent, categories, aiAdvice, depositOffer } = result.payload;
     const { accountBalance, defaultAmount, rate } = depositOffer;

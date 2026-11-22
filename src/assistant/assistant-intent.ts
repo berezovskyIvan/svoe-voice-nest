@@ -53,6 +53,10 @@ export const parseIntent = z.discriminatedUnion('intent', [
     deliveryTime: z.enum(['morning', 'unsupported']).nullable().default(null),
   }),
   z.object({ intent: z.literal('analytics') }),
+  z.object({
+    intent: z.literal('deposit'),
+    amount: z.number().nullable().default(null),
+  }),
   z.object({ intent: z.literal('unknown') }),
 ]);
 

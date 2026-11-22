@@ -19,6 +19,27 @@ const cart = z.object({
   recognizedText: z.string(),
 });
 
+const depositOffer = z.object({
+  accountBalance: z.int().nonnegative(),
+  currency: z.literal('RUB'),
+  defaultAmount: z.int().nullable(),
+  maxAmount: z.int().positive(),
+  minAmount: z.int().positive(),
+  rate: z.literal(14),
+  termMonths: z.literal(6),
+});
+
+export const depositPayload = z.object({
+  depositOffer,
+  requestedAmount: z.number().nullable(),
+});
+
+const deposit = z.object({
+  intent: z.literal('deposit'),
+  payload: depositPayload,
+  recognizedText: z.string(),
+});
+
 const analytics = z.object({
   intent: z.literal('analytics'),
   payload: z.object({
@@ -31,15 +52,7 @@ const analytics = z.object({
         percent: z.int().min(0).max(100),
       }),
     ),
-    depositOffer: z.object({
-      accountBalance: z.int().nonnegative(),
-      currency: z.literal('RUB'),
-      defaultAmount: z.int().nullable(),
-      maxAmount: z.int().positive(),
-      minAmount: z.int().positive(),
-      rate: z.literal(14),
-      termMonths: z.literal(6),
-    }),
+    depositOffer,
     period: z.string().regex(/^\d{4}-\d{2}$/),
     totalSpent: z.int().nonnegative(),
   }),
@@ -55,5 +68,6 @@ const unknown = z.object({
 export const assistantResponse = z.discriminatedUnion('intent', [
   cart,
   analytics,
+  deposit,
   unknown,
 ]);

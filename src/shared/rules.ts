@@ -23,6 +23,17 @@ export const deposit = {
   termMonths: 6,
 } as const;
 
+export function buildDepositOffer(accountBalance: number) {
+  return {
+    ...deposit,
+    accountBalance,
+    defaultAmount:
+      accountBalance < deposit.minAmount
+        ? null
+        : Math.min(800_000, accountBalance),
+  };
+}
+
 const moscow = { in: tz('Europe/Moscow') };
 const weekdays = [
   'sunday',

@@ -121,7 +121,7 @@ export class ActionsService {
           }),
           snapshot: {
             delivery: {
-              address: DELIVERY_ADDRESS,
+              address: input.deliveryAddress ?? DELIVERY_ADDRESS,
               date,
               slot: input.deliverySlot,
             },

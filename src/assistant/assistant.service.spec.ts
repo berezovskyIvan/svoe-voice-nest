@@ -74,7 +74,11 @@ describe('AssistantService', () => {
         ],
         totalPrice: 278,
         unmatchedItems: [],
-        delivery: { date: '2026-11-21', slot: '09:00-12:00' },
+        delivery: {
+          address: 'ул. Красная, 122',
+          date: '2026-11-21',
+          slot: '09:00-12:00',
+        },
       },
     });
   });

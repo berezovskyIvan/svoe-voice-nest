@@ -77,6 +77,7 @@ export class AssistantService {
       command.deliveryDay,
       command.deliveryTime,
       now,
+      command.deliveryAddress ?? undefined,
     );
     return {
       intent: command.intent,
@@ -98,12 +99,15 @@ export class AssistantService {
         `Классифицируй банковскую команду. Отвечай только JSON. Сегодня ${moscowDate(now)} в Москве.
 Вопрос о тратах за текущий месяц или без периода: {"intent":"analytics"}.
 Просьба открыть банковский вклад: «Хочу открыть вклад» → {"intent":"deposit","amount":null}, «Открой вклад на двести тысяч рублей» → {"intent":"deposit","amount":200000}. Сумму укажи числом в рублях, включая суммы прописью, или null, если точная сумма в рублях не указана. Не принимай срок или ставку за сумму. Вопрос об условиях существующего вклада, его пополнение или закрытие: {"intent":"unknown"}.
-Заказ фермерских продуктов: {"intent":"farmer-products","items":[{"name":"молоко","variant":"3,2%","quantity":null,"unit":null}],"deliveryDay":"saturday","deliveryTime":"morning"}.
+Просьба заказать, купить, привезти или доставить продукты — всегда farmer-products, в том числе когда назван адрес доставки.
+«Закажи молоко 3,2% на субботу утром» → {"intent":"farmer-products","items":[{"name":"молоко","variant":"3,2%","quantity":null,"unit":null}],"deliveryDay":"saturday","deliveryTime":"morning","deliveryAddress":null}.
+«Привези молоко завтра утром на улицу Садовую, дом пятнадцать, корпус два, квартира семь» → {"intent":"farmer-products","items":[{"name":"молоко","variant":null,"quantity":null,"unit":null}],"deliveryDay":"tomorrow","deliveryTime":"morning","deliveryAddress":"ул. Садовая, 15, корп. 2, кв. 7"}.
 Для товара укажи базовое название в именительном падеже, характеристику (например жирность) отдельно. Запиши устное «3 и 2 процента» как «3,2%».
 Количество укажи числом, единица pack, piece, g, kg, ml или l. Десяток яиц — 10 piece.
 Отсутствующие поля товара равны null. При отсутствии названий items = [].
 День доставки: today, tomorrow, английское название дня недели, YYYY-MM-DD, unsupported или null.
 Время доставки: morning (утро или слот 09–12), unsupported (другое время) или null.
+Адрес доставки: deliveryAddress — строка до 300 символов с явно названным адресом или null, если адрес не указан. Отделяй адрес от товаров и времени. Приводи название улицы к именительному падежу, номера дома, корпуса и квартиры записывай цифрами. Сохраняй названный город и уточнения к адресу. Не добавляй деталей от себя.
 Любая другая команда, включая ЖКХ и аналитику за другой месяц: {"intent":"unknown"}.`,
         recognizedText,
         true,

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isDate } from '../shared/rules.js';
+import { deliveryAddressSchema, isDate } from '../shared/rules.js';
 
 export const parseIntent = z.discriminatedUnion('intent', [
   z.object({
@@ -51,6 +51,7 @@ export const parseIntent = z.discriminatedUnion('intent', [
       .nullable()
       .default(null),
     deliveryTime: z.enum(['morning', 'unsupported']).nullable().default(null),
+    deliveryAddress: deliveryAddressSchema.nullable().default(null),
   }),
   z.object({ intent: z.literal('analytics') }),
   z.object({

@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { INestApplication } from '@nestjs/common';
@@ -9,6 +11,7 @@ import { YandexLanguageModel } from '../src/assistant/yandex-language-model.serv
 import { DemoDatabase } from '../src/persistence/demo-database.service.js';
 import { DemoRepository } from '../src/persistence/demo-repository.js';
 import { DataSource } from 'typeorm';
+import { demoProducts } from '../src/persistence/demo-products.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -120,6 +123,76 @@ describe('AppController (e2e)', () => {
       });
     expect(transaction).not.toHaveBeenCalled();
     expect(insertHistory).not.toHaveBeenCalled();
+  });
+
+  it('carries the address from a voice order through confirmation', async () => {
+    const database = app.get(DemoDatabase);
+    const store = new DemoRepository(app.get(DataSource).manager);
+    vi.spyOn(database, 'read').mockResolvedValue(store);
+    vi.spyOn(database, 'transaction').mockImplementation((work) => work(store));
+    vi.spyOn(store, 'findProducts').mockResolvedValue(demoProducts.slice(0, 1));
+    vi.spyOn(store, 'findAccount').mockResolvedValue({
+      balance: 180_000,
+      name: 'Екатерина',
+    });
+    vi.spyOn(store, 'findConfirmation').mockResolvedValue(undefined);
+    vi.spyOn(store, 'updateBalance').mockResolvedValue(undefined);
+    vi.spyOn(store, 'updateConfirmation').mockResolvedValue(undefined);
+    const insertHistory = vi.spyOn(store, 'insertHistory').mockResolvedValue(6);
+    const text = 'Привези молоко завтра утром на улицу Садовую, дом пятнадцать';
+    const address = 'ул. Садовая, 15';
+    vi.spyOn(app.get(UploadedSpeech), 'recognize').mockResolvedValue(text);
+    vi.spyOn(app.get(YandexLanguageModel), 'complete').mockResolvedValue(
+      JSON.stringify({
+        intent: 'farmer-products',
+        items: [{ name: 'молоко', variant: '3,2%' }],
+        deliveryDay: 'tomorrow',
+        deliveryTime: 'morning',
+        deliveryAddress: address,
+      }),
+    );
+
+    const api = request(app.getHttpServer());
+    const { body: voice } = await api
+      .post('/api/assistant/voice')
+      .attach('file', Buffer.from('audio'), 'command.webm')
+      .expect(200);
+    expect(voice.payload.delivery.address).toBe(address);
+    const { body: draft } = await api
+      .post('/api/assistant/text')
+      .set('X-Zoya-Contract', 'nuxt')
+      .send({ text })
+      .expect(200);
+    const { delivery, totalPrice } = draft.payload;
+    expect(delivery.address).toBe(address);
+    const items = [{ id: demoProducts[0].id, qty: 1 }];
+    await api
+      .post('/api/actions/order')
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        items,
+        expectedTotalPrice: totalPrice,
+        deliveryDate: delivery.date,
+        deliverySlot: delivery.slot,
+        deliveryAddress: delivery.address,
+      })
+      .expect(200);
+    await api
+      .post('/api/actions/order')
+      .send({
+        items,
+        totalPrice,
+        deliverySlot: voice.payload.delivery.slot,
+        deliveryAddress: voice.payload.delivery.address,
+      })
+      .expect(200);
+    expect(insertHistory).toHaveBeenCalledTimes(2);
+    for (const [order] of insertHistory.mock.calls) {
+      assert.ok(order.snapshot);
+      expect(JSON.parse(order.snapshot)).toMatchObject({
+        delivery: { address },
+      });
+    }
   });
 
   afterEach(async () => {

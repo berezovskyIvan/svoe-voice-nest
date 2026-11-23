@@ -9,9 +9,11 @@ import {
   parseISO,
   startOfMonth,
 } from 'date-fns';
+import { z } from 'zod';
 
 export const DELIVERY_ADDRESS = 'ул. Красная, 122';
 export const DELIVERY_SLOT = '09:00-12:00';
+export const deliveryAddressSchema = z.string().trim().min(1).max(300);
 export const DEMO_ACCOUNT_ID = 1;
 export const STARTING_BALANCE = 1_800_000;
 
@@ -83,11 +85,12 @@ export function resolveDelivery(
   day: string | null,
   time: 'morning' | 'unsupported' | null,
   now: Date,
+  address = DELIVERY_ADDRESS,
 ): { address: string; date: string; slot: string } | null {
   if (time === 'unsupported') return null;
   const date = resolveDeliveryDate(day, now);
   return deliveryAvailable(date, DELIVERY_SLOT, now)
-    ? { address: DELIVERY_ADDRESS, date, slot: DELIVERY_SLOT }
+    ? { address, date, slot: DELIVERY_SLOT }
     : null;
 }
 

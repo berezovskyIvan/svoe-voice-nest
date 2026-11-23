@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { deposit } from '../shared/rules.js';
+import { deliveryAddressSchema, deposit } from '../shared/rules.js';
 
 export const orderBody = z
   .strictObject({
@@ -19,6 +19,7 @@ export const orderBody = z
       .max(Number.MAX_SAFE_INTEGER),
     deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     deliverySlot: z.string().min(1).max(32),
+    deliveryAddress: deliveryAddressSchema.optional(),
   })
   .refine(
     ({ items }) => new Set(items.map(({ id }) => id)).size === items.length,
@@ -30,6 +31,7 @@ export const originalOrderBody = z
   .strictObject({
     items: orderBody.shape.items,
     totalPrice: orderBody.shape.expectedTotalPrice,
+    deliveryAddress: orderBody.shape.deliveryAddress,
     deliverySlot: z.string().regex(/^09:00\s*-\s*12:00$/),
   })
   .refine(

@@ -105,12 +105,14 @@ export class ActionsController {
     }
     const original = originalOrderBody.safeParse(body);
     if (!original.success) return invalid();
+    const { items, totalPrice, deliveryAddress } = original.data;
     const result: OrderResult = await this.commandBus.execute(
       new ConfirmOrderCommand(
         {
-          items: original.data.items,
-          expectedTotalPrice: original.data.totalPrice,
+          items,
+          expectedTotalPrice: totalPrice,
           deliverySlot: DELIVERY_SLOT,
+          deliveryAddress,
         },
         this.key(key, true),
       ),

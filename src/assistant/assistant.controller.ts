@@ -7,7 +7,6 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiBody,
   ApiConsumes,
@@ -18,8 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
-import type { AssistantResult } from './assistant.service.js';
-import { ProcessTextCommand } from './commands/process-text.command.js';
+import { AssistantService } from './assistant.service.js';
 import { invalid } from '../shared/errors.js';
 import { ApiMvpError, openApiSchema } from '../shared/openapi.js';
 import { assistantResponse } from './assistant-response.js';
@@ -30,13 +28,14 @@ import {
   toOriginalAssistantResponse,
 } from './original-assistant-response.js';
 import { maxUploadBytes, UploadedSpeech } from './uploaded-speech.service.js';
+import { NUXT_CONTRACT } from '../shared/api-contract.js';
 
 const textBody = z.strictObject({ text: z.string().trim().max(1000) });
 @ApiTags('assistant')
 @Controller('api/assistant')
 export class AssistantController {
   constructor(
-    private readonly commandBus: CommandBus,
+    private readonly assistant: AssistantService,
     private readonly speech: UploadedSpeech,
   ) {}
 
@@ -61,10 +60,14 @@ export class AssistantController {
     @Headers('x-zoya-contract') contract?: string,
   ) {
     const input = textBody.safeParse(body);
-    if (!input.success) return invalid();
-    if (contract === 'nuxt') {
-      if (!input.data.text) return invalid();
-      return this.process(input.data.text);
+    if (!input.success) {
+      return invalid();
+    }
+    if (contract === NUXT_CONTRACT) {
+      if (!input.data.text) {
+        return invalid();
+      }
+      return this.assistant.process(input.data.text);
     }
     return this.original(input.data.text);
   }
@@ -85,16 +88,16 @@ export class AssistantController {
   @ApiMvpError(400, 'Некорректное аудио')
   @ApiMvpError(503, 'Распознавание речи или помощник недоступны')
   async voice(@UploadedFile() file?: { buffer: Buffer }) {
-    if (!file?.buffer.length) return invalid();
+    if (!file?.buffer.length) {
+      return invalid();
+    }
     return this.original(await this.speech.recognize(file.buffer));
   }
 
   private async original(text: string) {
-    if (text.length < 2) return originalNoSpeech;
-    return toOriginalAssistantResponse(await this.process(text));
-  }
-
-  private process(text: string): Promise<AssistantResult> {
-    return this.commandBus.execute(new ProcessTextCommand(text));
+    if (text.length < 2) {
+      return originalNoSpeech;
+    }
+    return toOriginalAssistantResponse(await this.assistant.process(text));
   }
 }

@@ -10,6 +10,12 @@ import {
   startOfMonth,
 } from 'date-fns';
 import { z } from 'zod';
+import {
+  DELIVERY_DAY,
+  DELIVERY_TIME,
+  weekdays,
+  type DeliveryTime,
+} from './delivery-options.js';
 
 export const DELIVERY_ADDRESS = 'ул. Красная, 122';
 export const DELIVERY_SLOT = '09:00-12:00';
@@ -37,15 +43,6 @@ export function buildDepositOffer(accountBalance: number) {
 }
 
 const moscow = { in: tz('Europe/Moscow') };
-const weekdays = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-];
 
 export function deliveryAvailable(
   date: string,
@@ -83,12 +80,16 @@ export function moscowDate(now: Date): string {
 
 export function resolveDelivery(
   day: string | null,
-  time: 'morning' | 'unsupported' | null,
+  time: DeliveryTime | null,
   now: Date,
   address = DELIVERY_ADDRESS,
 ): { address: string; date: string; slot: string } | null {
-  if (time === 'unsupported') return null;
+  if (time === DELIVERY_TIME.unsupported) {
+    return null;
+  }
+
   const date = resolveDeliveryDate(day, now);
+
   return deliveryAvailable(date, DELIVERY_SLOT, now)
     ? { address, date, slot: DELIVERY_SLOT }
     : null;
@@ -97,14 +98,27 @@ export function resolveDelivery(
 function resolveDeliveryDate(day: string | null, now: Date): string {
   const today = moscowDate(now);
   const canDeliverToday = deliveryAvailable(today, DELIVERY_SLOT, now);
-  if (day === 'today') return today;
-  if (day === 'tomorrow' || (day === null && !canDeliverToday)) {
+
+  if (day === DELIVERY_DAY.today) {
+    return today;
+  }
+
+  if (day === DELIVERY_DAY.tomorrow || (day === null && !canDeliverToday)) {
     return moscowDate(addDays(now, 1, moscow));
   }
-  if (day === null) return today;
+
+  if (day === null) {
+    return today;
+  }
+
   const weekday = weekdays.indexOf(day);
-  if (weekday < 0) return day;
+
+  if (weekday < 0) {
+    return day;
+  }
+
   const delta = (weekday - getDay(now, moscow) + 7) % 7;
+
   return moscowDate(
     addDays(now, delta === 0 && !canDeliverToday ? 7 : delta, moscow),
   );

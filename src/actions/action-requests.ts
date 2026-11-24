@@ -24,15 +24,18 @@ export const orderBody = z
   .refine(
     ({ items }) => new Set(items.map(({ id }) => id)).size === items.length,
   );
+
 export const depositBody = z.strictObject({
   amount: z.number().int().min(deposit.minAmount).max(deposit.maxAmount),
 });
+
 export const originalOrderBody = z
   .strictObject({
+    deliveryAddress: orderBody.shape.deliveryAddress,
+    deliveryDate: orderBody.shape.deliveryDate.optional(),
+    deliverySlot: z.string().regex(/^09:00\s*-\s*12:00$/),
     items: orderBody.shape.items,
     totalPrice: orderBody.shape.expectedTotalPrice,
-    deliveryAddress: orderBody.shape.deliveryAddress,
-    deliverySlot: z.string().regex(/^09:00\s*-\s*12:00$/),
   })
   .refine(
     ({ items }) => new Set(items.map(({ id }) => id)).size === items.length,

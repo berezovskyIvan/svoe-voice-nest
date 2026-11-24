@@ -1,16 +1,22 @@
 import { z } from 'zod';
+import { deposit } from '../shared/rules.js';
 import { lineItem } from '../shared/openapi.js';
-import type { AssistantResult } from './assistant.service.js';
+import type { AssistantResult } from './interfaces/index.js';
 import { depositPayload } from './assistant-response.js';
+import { RESPONSE_STATUS } from '../shared/api-contract.js';
+import {
+  ASSISTANT_INTENT,
+  ORIGINAL_MARKET_INTENT,
+} from './assistant-intent-values.js';
 
 export const originalNoSpeech = {
-  status: 'error' as const,
+  status: RESPONSE_STATUS.error,
   message: 'Не расслышал. Повторите, пожалуйста',
 };
 
 const marketResponse = z.object({
-  status: z.literal('success'),
-  intent: z.literal('market'),
+  status: z.literal(RESPONSE_STATUS.success),
+  intent: z.literal(ORIGINAL_MARKET_INTENT),
   recognizedText: z.string(),
   payload: z.object({
     items: z.array(lineItem.omit({ unitLabel: true })),
@@ -20,8 +26,8 @@ const marketResponse = z.object({
   }),
 });
 const analyticsResponse = z.object({
-  status: z.literal('success'),
-  intent: z.literal('analytics'),
+  status: z.literal(RESPONSE_STATUS.success),
+  intent: z.literal(ASSISTANT_INTENT.analytics),
   recognizedText: z.string(),
   payload: z.object({
     totalSpent: z.int(),
@@ -32,7 +38,7 @@ const analyticsResponse = z.object({
     depositOffer: z.object({
       accountBalance: z.int(),
       defaultAmount: z.int().nullable(),
-      rate: z.literal(14),
+      rate: z.literal(deposit.rate),
     }),
   }),
 });
@@ -41,13 +47,13 @@ export const originalAssistantResponse = z.union([
   marketResponse,
   analyticsResponse,
   z.object({
-    status: z.literal('success'),
-    intent: z.literal('deposit'),
+    status: z.literal(RESPONSE_STATUS.success),
+    intent: z.literal(ASSISTANT_INTENT.deposit),
     recognizedText: z.string(),
     payload: depositPayload,
   }),
   z.object({
-    status: z.literal('error'),
+    status: z.literal(RESPONSE_STATUS.error),
     message: z.literal(originalNoSpeech.message),
   }),
 ]);
@@ -62,16 +68,20 @@ const deliveryDate = new Intl.DateTimeFormat('ru-RU', {
 export function toOriginalAssistantResponse(
   result: AssistantResult,
 ): z.infer<typeof originalAssistantResponse> {
-  if (result.intent === 'unknown') return originalNoSpeech;
+  if (result.intent === ASSISTANT_INTENT.unknown) {
+    return originalNoSpeech;
+  }
   const { recognizedText } = result;
-  const status = 'success' as const;
-  if (result.intent === 'deposit') return { status, ...result };
-  if (result.intent === 'analytics') {
+  const status = RESPONSE_STATUS.success;
+  if (result.intent === ASSISTANT_INTENT.deposit) {
+    return { status, ...result };
+  }
+  if (result.intent === ASSISTANT_INTENT.analytics) {
     const { totalSpent, categories, aiAdvice, depositOffer } = result.payload;
     const { accountBalance, defaultAmount, rate } = depositOffer;
     return {
       status,
-      intent: 'analytics',
+      intent: ASSISTANT_INTENT.analytics,
       recognizedText,
       payload: {
         totalSpent,
@@ -89,7 +99,7 @@ export function toOriginalAssistantResponse(
   const date = delivery && deliveryDate.format(new Date(delivery.date));
   return {
     status,
-    intent: 'market',
+    intent: ORIGINAL_MARKET_INTENT,
     recognizedText,
     payload: {
       items: items.map(({ id, name, qty, price, imageUrl }) => ({

@@ -1,16 +1,10 @@
 import type { EntityManager } from 'typeorm';
-import { normalize, type Product } from '../shared/catalog.js';
-import { reject } from '../shared/errors.js';
+import { normalize } from '../shared/catalog.js';
+import { ERROR_CODE, reject } from '../shared/errors.js';
+import type { ConfirmationType } from '../shared/history-types.js';
+import type { Product } from '../shared/interfaces/index.js';
 import { DEMO_ACCOUNT_ID } from '../shared/rules.js';
-
-export interface HistoryEntry {
-  amount: number | null;
-  createdAt: Date;
-  id: number;
-  subtitle: string;
-  title: string;
-  type: 'order' | 'analytics' | 'deposit' | 'demo';
-}
+import type { HistoryEntry } from './interfaces/index.js';
 
 export class DemoRepository {
   constructor(private readonly manager: EntityManager) {}
@@ -22,17 +16,28 @@ export class DemoRepository {
       .addSelect('account."userName"', 'name')
       .from('accounts', 'account')
       .where('id = :id', { id: DEMO_ACCOUNT_ID });
-    if (lock) query.setLock('pessimistic_write');
+
+    if (lock) {
+      query.setLock('pessimistic_write');
+    }
+
     const account = await query.getRawOne<{ balance: number; name: string }>();
-    if (!account)
-      return reject(503, 'DATABASE_UNAVAILABLE', 'Демо-счёт недоступен');
+
+    if (!account) {
+      return reject(
+        503,
+        ERROR_CODE.DATABASE_UNAVAILABLE,
+        'Демо-счёт недоступен',
+      );
+    }
+
     return account;
   }
 
   findConfirmation<T>(input: {
     key: string;
     request: object;
-    type: 'order' | 'deposit';
+    type: ConfirmationType;
   }): Promise<{ matches: boolean; response: T } | undefined> {
     return this.manager
       .createQueryBuilder()
@@ -69,8 +74,11 @@ export class DemoRepository {
       ])
       .from('products', 'product')
       .orderBy('id');
-    if (ids)
+
+    if (ids) {
       query.where('id IN (:...ids)', { ids }).setLock('pessimistic_read');
+    }
+
     if (keywords.length) {
       const terms = keywords.map(normalize);
       const patterns = terms.map(
@@ -85,6 +93,7 @@ export class DemoRepository {
         { patterns, terms },
       );
     }
+
     return query.getRawMany<Product>();
   }
 
@@ -121,6 +130,7 @@ export class DemoRepository {
       .returning('id')
       .execute();
     const [row] = raw as { id: number }[];
+
     return row.id;
   }
 

@@ -1,15 +1,17 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import { Analytics } from './analytics.service.js';
-import { AssistantService } from './assistant.service.js';
+import { Analytics } from '../../src/assistant/analytics.service.js';
+import { ProcessTextHandler } from '../../src/assistant/commands/handlers/process-text.handler.js';
+import { ProcessTextCommand } from '../../src/assistant/commands/process-text.command.js';
 import {
   databaseOptions,
   DemoDatabase,
-} from '../persistence/demo-database.service.js';
-import { DemoRepository } from '../persistence/demo-repository.js';
-import { YandexLanguageModel } from './yandex-language-model.service.js';
+} from '../../src/persistence/demo-database.service.js';
+import { DemoRepository } from '../../src/persistence/demo-repository.js';
+import { PRODUCT_UNITS } from '../../src/shared/product-units.js';
+import { YandexLanguageModel } from '../../src/assistant/yandex-language-model.service.js';
 
-describe('AssistantService', () => {
+describe('ProcessTextHandler', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -29,8 +31,13 @@ describe('AssistantService', () => {
       JSON.stringify({
         intent: 'farmer-products',
         items: [
-          { name: 'молоко', variant: '3,2%', quantity: null, unit: 'l' },
-          { name: 'яйца', quantity: '10', unit: 'piece' },
+          {
+            name: 'молоко',
+            variant: '3,2%',
+            quantity: null,
+            unit: PRODUCT_UNITS.liter,
+          },
+          { name: 'яйца', quantity: '10', unit: PRODUCT_UNITS.piece },
         ],
         deliveryDay: 'Saturday',
         deliveryTime: 'morning',
@@ -42,7 +49,7 @@ describe('AssistantService', () => {
         name: 'Молоко 3,2%',
         unitLabel: '1 л',
         packSize: 1000,
-        packUnit: 'ml',
+        packUnit: PRODUCT_UNITS.milliliter,
         price: 129,
         imageUrl: '',
         keywords: ['молоко'],
@@ -52,7 +59,7 @@ describe('AssistantService', () => {
         name: 'Яйца С0',
         unitLabel: '10 шт',
         packSize: 10,
-        packUnit: 'piece',
+        packUnit: PRODUCT_UNITS.piece,
         price: 149,
         imageUrl: '',
         keywords: ['яйца'],
@@ -60,11 +67,13 @@ describe('AssistantService', () => {
     ]);
 
     await expect(
-      new AssistantService(
+      new ProcessTextHandler(
         new Analytics(database, model),
         database,
         model,
-      ).process('Закажи молоко и десяток яиц на субботу утром'),
+      ).execute(
+        new ProcessTextCommand('Закажи молоко и десяток яиц на субботу утром'),
+      ),
     ).resolves.toMatchObject({
       intent: 'farmer-products',
       payload: {

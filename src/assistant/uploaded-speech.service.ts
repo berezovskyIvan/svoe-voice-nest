@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
-import { reject, voiceErrors } from '../shared/errors.js';
+import { ERROR_CODE, reject, voiceErrors } from '../shared/errors.js';
+
+const FILE_NOT_FOUND = 'ENOENT';
 
 const run = promisify(execFile);
 const recognition = z.object({ result: z.string() });
@@ -18,7 +20,9 @@ export class UploadedSpeech {
 
   async recognize(file: Buffer): Promise<string> {
     const apiKey = this.config.get<string>('YC_API_KEY');
-    if (!apiKey) this.unavailable();
+    if (!apiKey) {
+      this.unavailable();
+    }
 
     const audio = await this.convert(file);
     const url = new URL(
@@ -83,15 +87,16 @@ export class UploadedSpeech {
       );
       return stdout;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+      if ((error as NodeJS.ErrnoException).code === FILE_NOT_FOUND) {
         this.unavailable();
-      return reject(400, 'INVALID_AUDIO', voiceErrors.INVALID_AUDIO);
+      }
+      return reject(400, ERROR_CODE.INVALID_AUDIO, voiceErrors.INVALID_AUDIO);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
   }
 
   private unavailable(): never {
-    return reject(503, 'STT_UNAVAILABLE', voiceErrors.STT_UNAVAILABLE);
+    return reject(503, ERROR_CODE.STT_UNAVAILABLE, voiceErrors.STT_UNAVAILABLE);
   }
 }

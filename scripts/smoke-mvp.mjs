@@ -4,10 +4,30 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 
+const HTTPS_PROTOCOL = 'https:';
+const SECURE_WEBSOCKET_PROTOCOL = 'wss:';
+const WEBSOCKET_PROTOCOL = 'ws:';
+const BOTH_SCENARIOS = 'both';
+const VOICE_SCENARIO = 'voice';
+const TEXT_SCENARIO = 'text';
+const REJECTED_STATUS = 'rejected';
+
+const VOICE_COMMAND = { cancel: 'cancel', stop: 'stop' };
+const VOICE_EVENT = {
+  error: 'error',
+  ready: 'ready',
+  recognized: 'recognized',
+  result: 'result',
+  transcript: 'transcript',
+};
+
 const config = new ConfigService();
 const host = new URL(config.get('SMOKE_API_URL', 'http://127.0.0.1:8080'));
 const voiceUrl = new URL('/api/assistant/voice', host);
-voiceUrl.protocol = host.protocol === 'https:' ? 'wss:' : 'ws:';
+voiceUrl.protocol =
+  host.protocol === HTTPS_PROTOCOL
+    ? SECURE_WEBSOCKET_PROTOCOL
+    : WEBSOCKET_PROTOCOL;
 async function api(path, body, key, expected = 200) {
   const response = await fetch(
     new URL('/api/' + path, host),
@@ -48,7 +68,7 @@ async function voice(audioPath) {
     }, 35_000);
     socket.addEventListener('message', async ({ data }) => {
       const event = JSON.parse(data);
-      if (event.type === 'ready') {
+      if (event.type === VOICE_EVENT.ready) {
         for (
           let index = 0;
           index < audio.length && socket.readyState === WebSocket.OPEN;
@@ -59,22 +79,22 @@ async function voice(audioPath) {
         }
         if (socket.readyState === WebSocket.OPEN) {
           stop = true;
-          socket.send(JSON.stringify({ type: 'stop' }));
-          socket.send(JSON.stringify({ type: 'stop' }));
+          socket.send(JSON.stringify({ type: VOICE_COMMAND.stop }));
+          socket.send(JSON.stringify({ type: VOICE_COMMAND.stop }));
         }
-      } else if (event.type === 'transcript' && !stop && event.text) {
+      } else if (event.type === VOICE_EVENT.transcript && !stop && event.text) {
         interim = true;
-      } else if (event.type === 'recognized') {
+      } else if (event.type === VOICE_EVENT.recognized) {
         console.log(
           'SpeechKit interim before stop:',
           interim,
           '| final:',
           event.text,
         );
-      } else if (event.type === 'error') {
+      } else if (event.type === VOICE_EVENT.error) {
         clearTimeout(timer);
         reject(new Error('Voice result: ' + event.error.code));
-      } else if (event.type === 'result') {
+      } else if (event.type === VOICE_EVENT.result) {
         clearTimeout(timer);
         try {
           assert(interim, 'No text before stop');
@@ -174,15 +194,20 @@ async function voiceEdge(command) {
     let result;
     socket.addEventListener('message', ({ data }) => {
       const event = JSON.parse(data);
-      if (event.type === 'ready')
+      if (event.type === VOICE_EVENT.ready) {
         socket.send(JSON.stringify({ type: command }));
-      else result = event;
+      } else {
+        result = event;
+      }
     });
     socket.addEventListener('close', () => {
       clearTimeout(timer);
       try {
-        if (command === 'stop') assert.equal(result?.error?.code, 'NO_SPEECH');
-        else assert.equal(result, undefined);
+        if (command === VOICE_COMMAND.stop) {
+          assert.equal(result?.error?.code, 'NO_SPEECH');
+        } else {
+          assert.equal(result, undefined);
+        }
         resolve();
       } catch (error) {
         reject(error);
@@ -235,21 +260,28 @@ async function checkContract() {
   }
 }
 
-const requested = process.argv[2] ?? 'both';
+const requested = process.argv[2] ?? BOTH_SCENARIOS;
 const tasks = [['OpenAPI, CORS and catalog images', checkContract()]];
-if (requested !== 'voice') tasks.push(['Text scenarios', scenarios()]);
+if (requested !== VOICE_SCENARIO) {
+  tasks.push(['Text scenarios', scenarios()]);
+}
 const audioPath = config.get('SMOKE_AUDIO_PCM');
-if (requested !== 'text' && audioPath)
+if (requested !== TEXT_SCENARIO && audioPath) {
   tasks.push(['SpeechKit WebSocket', voice(audioPath)]);
-if (requested !== 'text')
+}
+if (requested !== TEXT_SCENARIO) {
   tasks.push([
     'Voice silence and cancel',
-    Promise.all([voiceEdge('stop'), voiceEdge('cancel')]),
+    Promise.all([
+      voiceEdge(VOICE_COMMAND.stop),
+      voiceEdge(VOICE_COMMAND.cancel),
+    ]),
   ]);
+}
 const outcomes = await Promise.allSettled(tasks.map(([, task]) => task));
 for (const [index, outcome] of outcomes.entries()) {
   console.log(tasks[index][0] + ': ' + outcome.status);
-  if (outcome.status === 'rejected') {
+  if (outcome.status === REJECTED_STATUS) {
     process.exitCode = 1;
     console.log(outcome.reason.message);
   }

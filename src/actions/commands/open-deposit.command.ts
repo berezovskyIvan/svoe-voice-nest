@@ -1,5 +1,5 @@
 import { Command } from '@nestjs/cqrs';
-import type { DepositResult } from '../actions.service.js';
+import type { DepositResult } from '../interfaces/index.js';
 
 export class OpenDepositCommand extends Command<DepositResult> {
   constructor(

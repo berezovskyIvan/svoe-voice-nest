@@ -6,7 +6,6 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { fileURLToPath } from 'node:url';
 import { ActionsModule } from './actions/actions.module.js';
 import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AssistantModule } from './assistant/assistant.module.js';
 import { MvpFailureFilter } from './shared/errors.js';
 import { VoiceModule } from './voice/voice.module.js';
@@ -26,6 +25,6 @@ import { VoiceModule } from './voice/voice.module.js';
     }),
     VoiceModule,
   ],
-  providers: [AppService, { provide: APP_FILTER, useClass: MvpFailureFilter }],
+  providers: [{ provide: APP_FILTER, useClass: MvpFailureFilter }],
 })
 export class AppModule {}

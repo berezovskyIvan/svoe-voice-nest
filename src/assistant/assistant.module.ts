@@ -10,6 +10,7 @@ import { UploadedSpeech } from './uploaded-speech.service.js';
 
 @Module({
   controllers: [AssistantController],
+  exports: [AssistantService],
   imports: [PersistenceModule],
   providers: [
     Analytics,

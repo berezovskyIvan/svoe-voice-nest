@@ -25,8 +25,9 @@ export class YandexLanguageModel {
   ): Promise<string> {
     const apiKey = this.config.get<string>('YC_API_KEY');
     const folderId = this.config.get<string>('YC_FOLDER_ID');
-    if (!apiKey || !folderId)
+    if (!apiKey || !folderId) {
       throw new Error('YandexGPT configuration is missing');
+    }
     const response = await fetch(
       'https://llm.api.cloud.yandex.net/foundationModels/v1/completion',
       {

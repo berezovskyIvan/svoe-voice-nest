@@ -5,7 +5,8 @@ import { InitialDemoSchema1760000000000 } from './migrations/initial-demo-schema
 import { DemoRepository } from './demo-repository.js';
 import { OriginalDemoFields1760000000001 } from './migrations/original-demo-fields.js';
 import { seedDemoData } from './demo-seed.js';
-import { reject } from '../shared/errors.js';
+import { ERROR_CODE, reject } from '../shared/errors.js';
+import { DEMO_MODE } from './demo-mode.js';
 
 export function databaseOptions(url?: string) {
   return {
@@ -46,17 +47,19 @@ export class DemoDatabase {
   async resetHistory(): Promise<void> {
     const connection = await this.connect();
     await connection.transaction((manager) =>
-      seedDemoData(manager, 'reset-history'),
+      seedDemoData(manager, DEMO_MODE.resetHistory),
     );
   }
 
   private connect(): Promise<DataSource> {
     if (!this.connection) {
       const url = this.config.get<string>('DATABASE_URL');
-      if (!url) reject(503, 'DATABASE_UNAVAILABLE', 'База данных недоступна');
+      if (!url) {
+        reject(503, ERROR_CODE.DATABASE_UNAVAILABLE, 'База данных недоступна');
+      }
       this.connection = this.source.initialize().catch(() => {
         this.connection = undefined;
-        reject(503, 'DATABASE_UNAVAILABLE', 'База данных недоступна');
+        reject(503, ERROR_CODE.DATABASE_UNAVAILABLE, 'База данных недоступна');
       });
     }
     return this.connection;

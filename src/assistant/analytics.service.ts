@@ -1,14 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { SpendingCategory } from './interfaces/index.js';
 import { DemoDatabase } from '../persistence/demo-database.service.js';
 import { buildDepositOffer, deposit, monthBounds } from '../shared/rules.js';
 import { YandexLanguageModel } from './yandex-language-model.service.js';
-
-interface SpendingCategory {
-  amount: number;
-  code: string;
-  name: string;
-  percent: number;
-}
+import { ASSISTANT_INTENT } from './assistant-intent-values.js';
+import { HISTORY_TYPE } from '../shared/history-types.js';
 
 const categoryNames: Record<string, string> = {
   cafes: 'Кафе и рестораны',
@@ -56,10 +52,10 @@ export class Analytics {
         ? `${top.name} · ${top.percent}%`
         : 'Трат за месяц пока нет',
       title: recognizedText,
-      type: 'analytics',
+      type: HISTORY_TYPE.analytics,
     });
     return {
-      intent: 'analytics' as const,
+      intent: ASSISTANT_INTENT.analytics,
       recognizedText,
       payload: {
         period,

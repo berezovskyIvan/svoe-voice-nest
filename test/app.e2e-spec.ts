@@ -12,6 +12,7 @@ import { DemoDatabase } from '../src/persistence/demo-database.service.js';
 import { DemoRepository } from '../src/persistence/demo-repository.js';
 import { DataSource } from 'typeorm';
 import { demoProducts } from '../src/persistence/demo-products.js';
+import { resolveDelivery } from '../src/shared/rules.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -139,14 +140,16 @@ describe('AppController (e2e)', () => {
     vi.spyOn(store, 'updateBalance').mockResolvedValue(undefined);
     vi.spyOn(store, 'updateConfirmation').mockResolvedValue(undefined);
     const insertHistory = vi.spyOn(store, 'insertHistory').mockResolvedValue(6);
-    const text = 'Привези молоко завтра утром на улицу Садовую, дом пятнадцать';
+    const text =
+      'Привези молоко 21 ноября 2099 года утром на улицу Садовую, дом пятнадцать';
     const address = 'ул. Садовая, 15';
+    const date = '2099-11-21';
     vi.spyOn(app.get(UploadedSpeech), 'recognize').mockResolvedValue(text);
     vi.spyOn(app.get(YandexLanguageModel), 'complete').mockResolvedValue(
       JSON.stringify({
         intent: 'farmer-products',
         items: [{ name: 'молоко', variant: '3,2%' }],
-        deliveryDay: 'tomorrow',
+        deliveryDay: date,
         deliveryTime: 'morning',
         deliveryAddress: address,
       }),
@@ -165,6 +168,7 @@ describe('AppController (e2e)', () => {
       .expect(200);
     const { delivery, totalPrice } = draft.payload;
     expect(delivery.address).toBe(address);
+    expect(delivery.date).toBe(date);
     const items = [{ id: demoProducts[0].id, qty: 1 }];
     await api
       .post('/api/actions/order')
@@ -177,20 +181,31 @@ describe('AppController (e2e)', () => {
         deliveryAddress: delivery.address,
       })
       .expect(200);
+    const originalRequest = {
+      items,
+      totalPrice,
+      deliverySlot: voice.payload.delivery.slot,
+      deliveryAddress: voice.payload.delivery.address,
+    };
     await api
       .post('/api/actions/order')
-      .send({
-        items,
-        totalPrice,
-        deliverySlot: voice.payload.delivery.slot,
-        deliveryAddress: voice.payload.delivery.address,
-      })
+      .send({ ...originalRequest, deliveryDate: date })
       .expect(200);
-    expect(insertHistory).toHaveBeenCalledTimes(2);
-    for (const [order] of insertHistory.mock.calls) {
+    await api.post('/api/actions/order').send(originalRequest).expect(200);
+    await api
+      .post('/api/actions/order')
+      .send({ ...originalRequest, deliveryDate: '2000-01-01' })
+      .expect(409);
+    const expectedDates = [
+      date,
+      date,
+      resolveDelivery(null, null, new Date())?.date,
+    ];
+    expect(insertHistory).toHaveBeenCalledTimes(expectedDates.length);
+    for (const [index, [order]] of insertHistory.mock.calls.entries()) {
       assert.ok(order.snapshot);
       expect(JSON.parse(order.snapshot)).toMatchObject({
-        delivery: { address },
+        delivery: { address, date: expectedDates[index] },
       });
     }
   });

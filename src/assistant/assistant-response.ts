@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { deposit as depositTerms } from '../shared/rules.js';
 import { lineItem } from '../shared/openapi.js';
+import { DELIVERY_ISSUE } from '../shared/delivery-options.js';
+import { ASSISTANT_INTENT } from './assistant-intent-values.js';
 
 const cart = z.object({
-  intent: z.literal('farmer-products'),
+  intent: z.literal(ASSISTANT_INTENT.farmerProducts),
   payload: z.object({
     delivery: z
       .object({
@@ -11,7 +14,7 @@ const cart = z.object({
         slot: z.string(),
       })
       .nullable(),
-    deliveryIssue: z.literal('UNSUPPORTED_DELIVERY').nullable(),
+    deliveryIssue: z.literal(DELIVERY_ISSUE.unsupported).nullable(),
     items: z.array(lineItem),
     totalPrice: z.int().nonnegative(),
     unmatchedItems: z.array(z.string()),
@@ -21,12 +24,12 @@ const cart = z.object({
 
 const depositOffer = z.object({
   accountBalance: z.int().nonnegative(),
-  currency: z.literal('RUB'),
+  currency: z.literal(depositTerms.currency),
   defaultAmount: z.int().nullable(),
   maxAmount: z.int().positive(),
   minAmount: z.int().positive(),
-  rate: z.literal(14),
-  termMonths: z.literal(6),
+  rate: z.literal(depositTerms.rate),
+  termMonths: z.literal(depositTerms.termMonths),
 });
 
 export const depositPayload = z.object({
@@ -35,13 +38,13 @@ export const depositPayload = z.object({
 });
 
 const deposit = z.object({
-  intent: z.literal('deposit'),
+  intent: z.literal(ASSISTANT_INTENT.deposit),
   payload: depositPayload,
   recognizedText: z.string(),
 });
 
 const analytics = z.object({
-  intent: z.literal('analytics'),
+  intent: z.literal(ASSISTANT_INTENT.analytics),
   payload: z.object({
     aiAdvice: z.string(),
     categories: z.array(
@@ -60,7 +63,7 @@ const analytics = z.object({
 });
 
 const unknown = z.object({
-  intent: z.literal('unknown'),
+  intent: z.literal(ASSISTANT_INTENT.unknown),
   message: z.string(),
   recognizedText: z.string(),
 });

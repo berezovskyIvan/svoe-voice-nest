@@ -1,15 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import type { Action } from './interfaces/index.js';
 import { DemoDatabase } from '../persistence/demo-database.service.js';
 import type { DemoRepository } from '../persistence/demo-repository.js';
-import { reject } from '../shared/errors.js';
-
-interface Action<T> {
-  amount: number;
-  response: (historyId: number, newBalance: number) => T;
-  snapshot: object;
-  subtitle: string;
-  title: string;
-}
+import { ERROR_CODE, reject } from '../shared/errors.js';
+import type { ConfirmationType } from '../shared/history-types.js';
 
 @Injectable()
 export class ConfirmAction {
@@ -19,25 +13,31 @@ export class ConfirmAction {
     key: string;
     prepare: (store: DemoRepository) => Action<T> | Promise<Action<T>>;
     request: object;
-    type: 'order' | 'deposit';
+    type: ConfirmationType;
   }): Promise<T> {
     return this.database.transaction(async (store) => {
       const { balance } = await store.findAccount(true);
       const { key, request, type } = input;
       const existing = await store.findConfirmation<T>({ key, request, type });
       if (existing) {
-        if (!existing.matches)
+        if (!existing.matches) {
           return reject(
             409,
-            'IDEMPOTENCY_CONFLICT',
+            ERROR_CODE.IDEMPOTENCY_CONFLICT,
             'Подтверждение уже использовано',
           );
+        }
         return existing.response;
       }
       const action = await input.prepare(store);
       const newBalance = balance - action.amount;
-      if (newBalance < 0)
-        return reject(409, 'INSUFFICIENT_FUNDS', 'Недостаточно средств');
+      if (newBalance < 0) {
+        return reject(
+          409,
+          ERROR_CODE.INSUFFICIENT_FUNDS,
+          'Недостаточно средств',
+        );
+      }
       await store.updateBalance(newBalance);
       const historyId = await store.insertHistory({
         amount: action.amount,

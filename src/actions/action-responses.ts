@@ -1,14 +1,20 @@
 import { z } from 'zod';
+import { deposit } from '../shared/rules.js';
+import { DEMO_RESET_MESSAGE, RESPONSE_STATUS } from '../shared/api-contract.js';
+import {
+  HISTORY_TYPE,
+  ORIGINAL_HISTORY_TYPE,
+} from '../shared/history-types.js';
 
 export const depositResponse = z.object({
   amount: z.int().positive(),
-  currency: z.literal('RUB'),
+  currency: z.literal(deposit.currency),
   depositId: z.int().positive(),
   estimatedInterest: z.int().nonnegative(),
   estimatedTotal: z.int().positive(),
   newBalance: z.int().nonnegative(),
-  rate: z.literal(14),
-  termMonths: z.literal(6),
+  rate: z.literal(deposit.rate),
+  termMonths: z.literal(deposit.termMonths),
 });
 
 export const historyResponse = z.object({
@@ -20,7 +26,12 @@ export const historyResponse = z.object({
       id: z.int().positive(),
       subtitle: z.string(),
       title: z.string(),
-      type: z.enum(['analytics', 'demo', 'deposit', 'order']),
+      type: z.enum([
+        HISTORY_TYPE.analytics,
+        HISTORY_TYPE.demo,
+        HISTORY_TYPE.deposit,
+        HISTORY_TYPE.order,
+      ]),
     }),
   ),
   user: z.object({ name: z.string() }),
@@ -37,17 +48,21 @@ export const originalHistoryResponse = historyResponse
   .extend({
     history: z.array(
       historyResponse.shape.history.element.extend({
-        type: z.enum(['market', 'analytics', 'transfer']),
+        type: z.enum([
+          ORIGINAL_HISTORY_TYPE.market,
+          ORIGINAL_HISTORY_TYPE.analytics,
+          ORIGINAL_HISTORY_TYPE.transfer,
+        ]),
       }),
     ),
   });
 
 export const originalActionResponse = z.object({
-  status: z.literal('ok'),
+  status: z.literal(RESPONSE_STATUS.ok),
   newBalance: z.int().nonnegative(),
 });
 
 export const resetResponse = z.object({
-  status: z.literal('ok'),
-  message: z.literal('Demo reset completed'),
+  status: z.literal(RESPONSE_STATUS.ok),
+  message: z.literal(DEMO_RESET_MESSAGE),
 });

@@ -3,6 +3,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
+const CATALOG_ORIGIN = 'https://api.svoe-rodnoe.ru';
+const REJECTED_STATUS = 'rejected';
+const WEBP_FORMAT = 'webp';
+
 const catalogUrl = new URL(
   '../src/persistence/demo-catalog.json',
   import.meta.url,
@@ -17,19 +21,19 @@ for (let offset = 0; offset < products.length; offset += 4) {
     products.slice(offset, offset + 4).map(saveImage),
   );
   for (const result of results) {
-    if (result.status === 'rejected') failures.push(result.reason.message);
+    if (result.status === REJECTED_STATUS) {
+      failures.push(result.reason.message);
+    }
   }
 }
-if (failures.length) throw new Error(failures.join('\n'));
+if (failures.length) {
+  throw new Error(failures.join('\n'));
+}
 console.log(`${products.length} WebP images prepared`);
 
 async function saveImage({ id, imageSource }) {
   const source = new URL(imageSource);
-  if (
-    source.origin !== 'https://api.svoe-rodnoe.ru' ||
-    !Number.isSafeInteger(id) ||
-    id < 1
-  ) {
+  if (source.origin !== CATALOG_ORIGIN || !Number.isSafeInteger(id) || id < 1) {
     throw new Error('Invalid catalog image');
   }
   const output = fileURLToPath(new URL(`${id}.webp`, outputDirectory));
@@ -37,11 +41,12 @@ async function saveImage({ id, imageSource }) {
     .metadata()
     .catch(() => null);
   if (
-    metadata?.format === 'webp' &&
+    metadata?.format === WEBP_FORMAT &&
     metadata.width === 400 &&
     metadata.height === 400
-  )
+  ) {
     return;
+  }
   const buffer = await fetchImage(source, id);
   await sharp(buffer)
     .rotate()
@@ -56,7 +61,9 @@ async function fetchImage(source, id) {
       redirect: 'error',
       signal: AbortSignal.timeout(20_000),
     }).catch(() => undefined);
-    if (response?.ok) return Buffer.from(await response.arrayBuffer());
+    if (response?.ok) {
+      return Buffer.from(await response.arrayBuffer());
+    }
     await response?.body?.cancel();
     if (response && response.status < 500 && response.status !== 429) {
       throw new Error(`Image ${id}: HTTP ${response.status}`);

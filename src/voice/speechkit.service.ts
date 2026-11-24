@@ -1,37 +1,10 @@
+import { credentials, loadPackageDefinition, Metadata } from '@grpc/grpc-js';
+import { loadSync } from '@grpc/proto-loader';
 import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  Client,
-  credentials,
-  loadPackageDefinition,
-  Metadata,
-  type ClientDuplexStream,
-} from '@grpc/grpc-js';
-import { loadSync } from '@grpc/proto-loader';
 import { fileURLToPath } from 'node:url';
 
-interface AlternativeUpdate {
-  alternatives?: { text?: string }[];
-}
-
-export interface SpeechEvent {
-  audioCursors?: { finalIndex?: number };
-  partial?: AlternativeUpdate;
-  final?: AlternativeUpdate;
-  eouUpdate?: { timeMs?: number };
-  finalRefinement?: { finalIndex?: number; normalizedText?: AlternativeUpdate };
-}
-
-type SpeechRequest =
-  { sessionOptions: object } | { chunk: { data: Buffer } } | { eou: object };
-export type SpeechStream = ClientDuplexStream<SpeechRequest, SpeechEvent>;
-
-interface Recognizer extends Client {
-  recognizeStreaming(
-    metadata: Metadata,
-    options: { deadline: Date },
-  ): SpeechStream;
-}
+import type { Recognizer } from './interfaces/index.js';
 
 @Injectable()
 export class SpeechKit implements OnApplicationShutdown {
@@ -41,7 +14,11 @@ export class SpeechKit implements OnApplicationShutdown {
 
   open() {
     const apiKey = this.config.get<string>('YC_API_KEY');
-    if (!apiKey) throw new Error('SpeechKit API key is missing');
+
+    if (!apiKey) {
+      throw new Error('SpeechKit API key is missing');
+    }
+
     if (!this.client) {
       const path = fileURLToPath(new URL('./speechkit.proto', import.meta.url));
       const loaded = loadPackageDefinition(
@@ -63,11 +40,13 @@ export class SpeechKit implements OnApplicationShutdown {
         credentials.createSsl(),
       );
     }
+
     const metadata = new Metadata();
     metadata.set('authorization', `Api-Key ${apiKey}`);
     const stream = this.client.recognizeStreaming(metadata, {
       deadline: new Date(Date.now() + 42_000),
     });
+
     return stream;
   }
 

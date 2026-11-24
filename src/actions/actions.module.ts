@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PersistenceModule } from '../persistence/persistence.module.js';
+import { ResetHistoryHandler } from './commands/handlers/reset-history.handler.js';
 import { ActionsController } from './actions.controller.js';
 import { ActionsService } from './actions.service.js';
 import { ConfirmOrderHandler } from './commands/handlers/confirm-order.handler.js';
@@ -16,6 +17,7 @@ import { ConfirmAction } from './confirm-action.service.js';
     ConfirmOrderHandler,
     GetHistoryHandler,
     OpenDepositHandler,
+    ResetHistoryHandler,
   ],
 })
 export class ActionsModule {}

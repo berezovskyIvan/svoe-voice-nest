@@ -1,4 +1,4 @@
-import type { SpeechEvent } from './speechkit.service.js';
+import type { SpeechEvent } from './interfaces/index.js';
 
 export class Transcript {
   private readonly finalized = new Map<number, string>();
@@ -7,27 +7,37 @@ export class Transcript {
   private readonly refined = new Set<number>();
 
   accept(event: SpeechEvent): boolean {
-    if (event.partial)
+    if (event.partial) {
       this.partial = event.partial.alternatives?.[0]?.text?.trim() ?? '';
+    }
+
     if (event.final) {
       const index = event.audioCursors?.finalIndex ?? 0;
-      if (!this.refined.has(index))
+
+      if (!this.refined.has(index)) {
         this.finalized.set(
           index,
           event.final.alternatives?.[0]?.text?.trim() ?? '',
         );
+      }
       this.partial = '';
     }
+
     if (event.finalRefinement) {
       const index = event.finalRefinement.finalIndex ?? 0;
       const text =
         event.finalRefinement.normalizedText?.alternatives?.[0]?.text?.trim();
+
       if (text) {
         this.finalized.set(index, text);
         this.refined.add(index);
       }
     }
-    if (event.eouUpdate) this.hasReachedEnd = true;
+
+    if (event.eouUpdate) {
+      this.hasReachedEnd = true;
+    }
+
     return !!(event.partial || event.final || event.finalRefinement);
   }
 

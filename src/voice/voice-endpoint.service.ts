@@ -3,12 +3,13 @@ import {
   Logger,
   type BeforeApplicationShutdown,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
 import type { Server } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { voiceErrors } from '../shared/errors.js';
-import { ProcessTextCommand } from '../assistant/commands/process-text.command.js';
-import { SpeechKit, type SpeechStream } from './speechkit.service.js';
+import { AssistantService } from '../assistant/assistant.service.js';
+import { ERROR_CODE, voiceErrors } from '../shared/errors.js';
+import type { SpeechStream } from './interfaces/index.js';
+import { SpeechKit } from './speechkit.service.js';
+import { VOICE_EVENT } from './voice-message.js';
 import { VoiceSession } from './voice-session.js';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class VoiceEndpoint implements BeforeApplicationShutdown {
   private server?: WebSocketServer;
 
   constructor(
-    private readonly commandBus: CommandBus,
+    private readonly assistant: AssistantService,
     private readonly speechKit: SpeechKit,
   ) {}
 
@@ -37,9 +38,9 @@ export class VoiceEndpoint implements BeforeApplicationShutdown {
       } catch {
         socket.send(
           JSON.stringify({
-            type: 'error',
+            type: VOICE_EVENT.error,
             error: {
-              code: 'STT_UNAVAILABLE',
+              code: ERROR_CODE.STT_UNAVAILABLE,
               message: voiceErrors.STT_UNAVAILABLE,
             },
           }),
@@ -47,10 +48,10 @@ export class VoiceEndpoint implements BeforeApplicationShutdown {
         socket.close();
         return;
       }
+
       new VoiceSession({
         logger: this.logger,
-        processText: (text) =>
-          this.commandBus.execute(new ProcessTextCommand(text)),
+        processText: (text) => this.assistant.process(text),
         socket,
         stream,
       }).start();
@@ -58,7 +59,9 @@ export class VoiceEndpoint implements BeforeApplicationShutdown {
   }
 
   beforeApplicationShutdown() {
-    for (const socket of this.server?.clients ?? []) socket.terminate();
+    for (const socket of this.server?.clients ?? []) {
+      socket.terminate();
+    }
     this.server?.close();
   }
 }

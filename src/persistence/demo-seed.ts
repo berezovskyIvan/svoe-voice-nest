@@ -1,18 +1,21 @@
 import type { EntityManager } from 'typeorm';
-import { demoProducts } from './demo-products.js';
-import { DemoRepository } from './demo-repository.js';
+import { HISTORY_TYPE } from '../shared/history-types.js';
 import {
   DEMO_ACCOUNT_ID,
   monthBounds,
   STARTING_BALANCE,
 } from '../shared/rules.js';
+import { DEMO_MODE, type DemoMode } from './demo-mode.js';
+import { demoProducts } from './demo-products.js';
+import { DemoRepository } from './demo-repository.js';
 
 export async function seedDemoData(
   manager: EntityManager,
-  mode: 'seed' | 'reset' | 'reset-history',
+  mode: DemoMode,
 ): Promise<void> {
   const store = new DemoRepository(manager);
-  if (mode === 'seed') {
+
+  if (mode === DEMO_MODE.seed) {
     await manager
       .createQueryBuilder()
       .insert()
@@ -43,16 +46,22 @@ export async function seedDemoData(
     .orIgnore()
     .returning('id')
     .execute();
-  if ((insert.raw as unknown[]).length === 0 && mode === 'seed') return;
+
+  if ((insert.raw as unknown[]).length === 0 && mode === DEMO_MODE.seed) {
+    return;
+  }
+
   await store.findAccount(true);
-  if (mode !== 'seed') {
+
+  if (mode !== DEMO_MODE.seed) {
     await store.updateBalance(STARTING_BALANCE);
     await manager
       .createQueryBuilder()
       .delete()
       .from('assistant_history')
       .execute();
-    if (mode === 'reset') {
+
+    if (mode === DEMO_MODE.reset) {
       await manager
         .createQueryBuilder()
         .delete()
@@ -60,7 +69,11 @@ export async function seedDemoData(
         .execute();
     }
   }
-  if (mode !== 'reset-history') await insertDemoSpending(manager);
+
+  if (mode !== DEMO_MODE.resetHistory) {
+    await insertDemoSpending(manager);
+  }
+
   await insertDemoHistory(manager);
 }
 
@@ -96,28 +109,28 @@ async function insertDemoHistory(manager: EntityManager): Promise<void> {
         createdAt: () => "now() - interval '4 days'",
         subtitle: 'Александру К.',
         title: 'Перевод по СБП',
-        type: 'demo',
+        type: HISTORY_TYPE.demo,
       },
       {
         amount: 6420,
         createdAt: () => "now() - interval '3 days'",
         subtitle: 'Оплачено',
         title: 'Оплата ЖКХ за октябрь',
-        type: 'demo',
+        type: HISTORY_TYPE.demo,
       },
       {
         amount: 5000,
         createdAt: () => "now() - interval '2 days'",
         subtitle: 'Оплачено',
         title: 'Покупка билетов на концерт',
-        type: 'demo',
+        type: HISTORY_TYPE.demo,
       },
       {
         amount: null,
         createdAt: () => "now() - interval '1 day'",
         subtitle: 'Демонстрационная запись',
         title: 'Аналитика трат за прошлый месяц',
-        type: 'demo',
+        type: HISTORY_TYPE.demo,
       },
     ])
     .execute();
